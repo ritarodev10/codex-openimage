@@ -34,6 +34,51 @@ Quick rules:
 - For batches >3 images, the cost-approval question is **non-optional**
 - After 2 rounds of questions, stop asking — pick defaults, generate, let the user redirect via "more like X / less like Y"
 
+## Output location policy
+
+**Never save generated images to `/tmp/`, `~/Downloads/`, `~/Desktop/`, or any throwaway location.** Images take real money and time to produce — they deserve a discoverable home from the start.
+
+Resolution order for the output directory:
+
+1. **Project convention** — if running inside a project, use the framework-appropriate path (see `references/project-detection.md`):
+   - Next/Nuxt/Astro/Vite → `public/images/`
+   - SvelteKit → `static/images/`
+   - Rails → `app/assets/images/`
+   - Generic HTML → `images/` or `assets/images/`
+   - Existing image dir in the repo → use it
+
+2. **Explicit user path** — if the user gave a path or filename, honor it exactly.
+
+3. **No project detected (standalone request)** — create a default dir in the current working directory:
+   - `./generated-images/<YYYY-MM-DD>/` (date-stamped, lets repeated runs accumulate without collision)
+   - Create the dir if it doesn't exist (`mkdir -p`)
+   - **Tell the user**: "No project framework detected — saving to `./generated-images/<date>/`. Want a different location?"
+   - Proceed unless they redirect
+
+4. **Ambiguous** — when there are multiple plausible project-relative paths (e.g., monorepo with several `public/` dirs), **ask** with multi-choice via `AskUserQuestion`.
+
+The `/tmp` path used in earlier examples in this doc is **only** for codex's own log files (stderr/stdout capture), never for image outputs. The image always lands somewhere the user can find later.
+
+## Reveal the output folder after batches
+
+After generating **more than one image** that all land in the same folder, ask once if the user wants to open the folder in their OS file explorer.
+
+Cross-platform open:
+- macOS: `open <dir>`
+- Linux: `xdg-open <dir>` (most distros; fall back to printing the path)
+- Windows: `explorer <path>` or `start "" "<path>"`
+
+Detect the OS via `uname` / `$OSTYPE` and pick the right command. If the open command fails or isn't available, print the absolute path so the user can navigate manually.
+
+**Skip the prompt** when:
+- Only one image was generated (let the existing single-file open behavior handle it if anything)
+- The user has answered "no" to the open-folder prompt earlier in this session
+- The output dir is the user's current working dir (they're already there)
+
+Use `AskUserQuestion` with header `Open folder` and options:
+- "Yes, open in file explorer"
+- "No, just print the path"
+
 ## Required environment
 
 - `OPENAI_API_KEY` exported in shell — codex needs it

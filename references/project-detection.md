@@ -25,6 +25,21 @@ If multiple frameworks detected (monorepo), ask which app the asset belongs to.
 
 If `public/` doesn't exist but the framework expects it, fall back to where existing images live: `find . -type d -name images | head -5`.
 
+## No project / standalone request
+
+If none of the markers above match and the user hasn't given a path (just "generate an image of X"), do **not** save to `/tmp/`, `~/Downloads/`, or `~/Desktop/`. Always create a discoverable dir relative to the current working directory:
+
+```
+./generated-images/<YYYY-MM-DD>/
+```
+
+- Date-stamp at the day level so repeated standalone runs accumulate without collision
+- Run `mkdir -p` to create it
+- Tell the user: "No project framework detected — saving to `./generated-images/<date>/`. Want a different location?"
+- Proceed unless redirected
+
+Why a default instead of always asking: most standalone requests are exploratory; making the user choose a path every time creates friction. The convention is discoverable (`./generated-images/`), date-stamped (no overwrites), and easy to relocate later.
+
 ## OG / social-card location
 
 Detect from framework metadata patterns:
