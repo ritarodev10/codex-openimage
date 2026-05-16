@@ -14,7 +14,7 @@ The other thing is cost. OpenAI's image API is fantastic but priced per call. At
 
 ## Who this is for
 
-Any AI coding agent that can run a shell command. The skill ships in the standard `SKILL.md` format that Claude Code and OpenCode read natively, but the underlying approach is portable — paste the orchestration logic into your agent's system prompt (Cursor, Windsurf, Cline, Roo Code, Aider, etc.) and it works. The image generation itself is happening in a Codex subprocess; your agent is just the conductor.
+Any AI coding agent that can run a shell command. The skill ships in the standard `SKILL.md` format that **Claude Code, OpenCode, and Pi** read natively. For agents without a skill loader — Cursor, Windsurf, Cline, Roo Code, Aider, and the like — the same orchestration drops into their project-rules file (`.cursorrules`, `.windsurfrules`, `AGENTS.md`, etc.). The image generation itself happens in a Codex subprocess; your agent is just the conductor.
 
 ## What it actually does
 
@@ -99,6 +99,12 @@ For OpenCode:
 
 ```bash
 ln -s ~/codex-openimage ~/.config/opencode/skills/codex-openimage
+```
+
+For Pi:
+
+```bash
+ln -s ~/codex-openimage ~/.pi/agent/skills/codex-openimage
 ```
 
 Restart your agent (or run its skill-refresh command). The skill activates automatically when you next ask for an image.
