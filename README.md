@@ -18,17 +18,15 @@ Any AI coding agent that can run a shell command. The skill ships in the standar
 
 ## What it actually does
 
-When your agent receives an image-related request, this skill takes over. It first figures out what you really need — the intent (`hero`, `og`, `feature-card`, `icon`, etc. each comes with sensible defaults for size, format, and quality), where the image should live (it walks your project structure and recognizes Next.js, Nuxt, Astro, SvelteKit, Vite, Rails, Phoenix, Django, and plain HTML), and what palette and visual style your existing assets are using.
+When your agent receives an image-related request, this skill takes over. It reads the project to figure out what you need — the intent (`hero`, `og`, `feature-card`, `icon`, etc. each comes with sensible defaults for size, format, and quality), the right output folder for your framework, and the palette and visual style of any existing assets. If something genuinely can't be inferred it asks — at most three focused questions, never a quiz.
 
-If the request is for something it can't quite infer, it asks — but politely, at most three focused questions, never a quiz. If you said "you decide" or the request is rich enough to synthesize from, it skips the questions and shows you a one-line preview of the prompt before spawning, so you can redirect with one keystroke.
+The two things this skill does that you can't get from a single Codex call:
 
-For responsive assets — heroes, section backgrounds, banners with text overlays — it generates three separately-composed variants (mobile portrait, tablet landscape, desktop widescreen) and emits a `<picture>` snippet you can paste in. Each variant is composed with the right text safe zone for that viewport, because image models can't crop their way out of bad composition.
+**Responsive sets composed right.** For heroes, section backgrounds, and any image with text on top, it generates separate mobile, tablet, and desktop variants — each composed with the proper text safe zone for that viewport. Image models can't crop their way out of bad composition, so each viewport gets its own spawn, not a resize.
 
-For whole-site asset packs, the skill runs a codebase scan to find every image slot (img tags, background-image CSS, OG meta, favicon, PWA manifest icons), builds a manifest with synthesized prompts and a cost estimate, gets your one-time approval, and then fans out: the most prominent asset gets generated first, and every subsequent generation uses that first image as a visual reference so the pack stays stylistically coherent. Without this trick, parallel image gens drift apart in palette, lighting, and composition — you end up with a portfolio of unrelated images instead of a family.
+**Style-coherent asset packs.** For whole-site generation, it scans the codebase for every image slot, generates the most prominent asset first, then uses that image as a visual reference for every subsequent spawn. Without this anchor, parallel image gens drift apart — you end up with ten unrelated pictures instead of a family.
 
-After every generation, it post-processes: strips EXIF, emits a WebP sibling for modern browsers, generates a `@2x` retina variant for anything under 2000px wide, and writes a small `.meta.json` sidecar with the prompt and parameters so a future `replace` run has somewhere to start.
-
-The image always lands somewhere discoverable — never `/tmp`, never `~/Downloads`. If you're inside a project, it uses the conventional path for that framework. If you're working standalone, it creates a date-stamped folder in your current directory so repeated runs accumulate without overwrites. After a batch run, it offers to open the folder in your OS file explorer.
+Every output is post-processed into web-ready form (WebP sibling, retina `@2x`, metadata sidecar) and saved to the right folder for your project.
 
 ## Modes at a glance
 
