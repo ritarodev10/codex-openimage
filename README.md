@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/header.png" alt="codex-openimage — orchestrating Codex for image generation across multiple outputs" width="100%" />
+</p>
+
 # codex-openimage
 
 > Get OpenAI's best image generation into any AI coding agent — for the price of a ChatGPT subscription instead of the API.
