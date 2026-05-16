@@ -23,6 +23,17 @@ Pick the mode that matches the user's ask. Then follow that mode's recipe below.
 
 Variants (`n=4`) of the same concept use a single spawn with codex's batch param; they don't require parallel spawns.
 
+## Asking before spawning
+
+If the user's request lacks context that would block quality, ask up to **3 focused questions** before spawning codex — not a 10-question gauntlet. See `references/clarifying-questions.md` for the full policy and use-case library.
+
+Quick rules:
+- Inventory the gaps. Fill what you can from defaults (size, format, quality), auto-synthesize what you can from project context (palette, subject from page copy), and only **ask** for what genuinely can't be inferred.
+- Use `AskUserQuestion` with multi-choice when the answer space is bounded (style family, mood, intent slug)
+- Always offer "match existing site" as an option when prior assets exist
+- For batches >3 images, the cost-approval question is **non-optional**
+- After 2 rounds of questions, stop asking — pick defaults, generate, let the user redirect via "more like X / less like Y"
+
 ## Required environment
 
 - `OPENAI_API_KEY` exported in shell — codex needs it
@@ -246,6 +257,7 @@ If the user is in a browser-visible context, also `open` the first generated ima
 - **`references/negative-prompts.md`** — content-type-specific quality guardrails
 - **`references/style-anchors.md`** — style descriptor library for `auto-pack` mode
 - **`references/asset-pack-scan.md`** — what slots to find and how, per framework
+- **`references/clarifying-questions.md`** — when to ask vs default; 20 use cases mapping vague requests to right questions
 - **`references/prompting.md`** — prompting principles (kept from legacy)
 - **`references/sample-prompts.md`** — copy/paste prompt recipes by taxonomy (kept from legacy)
 - **`scripts/scan-image-slots.sh`** — scans codebase for image slots, prints JSON
