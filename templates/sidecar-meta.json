@@ -1,0 +1,21 @@
+{
+  "original_prompt": "Flat geometric illustration of a person at a kitchen table reviewing a household budget on a tablet, warm morning light, plants on the sill, coffee cup, headline space reserved in left third. Palette: sage #7A9B76, sand #E8DCC4, clay #B8654F, ink #1A1F2E. Avoid photoreal faces, brand logos, glassmorphism, neon gradients.",
+  "model": "gpt-image-1.5",
+  "width": 1920,
+  "height": 1080,
+  "format": "png",
+  "size_bytes": 491520,
+  "generated_at": "2026-05-17T12:34:56Z",
+  "postprocessed_at": "2026-05-17T12:35:02Z",
+  "webp_path": "public/images/hero-desktop.webp",
+  "retina_path": "public/images/hero-desktop@2x.png",
+  "style_anchor": "Flat geometric illustration. Bold deliberate shapes, generous negative space, no gradients. Slight grain texture. Sage/sand/clay palette.",
+  "pack_id": "fintech-landing-v1",
+  "edit_history": [
+    {
+      "at": "2026-05-18T09:10:11Z",
+      "prompt_delta": "Make the coffee cup a teal mug instead of white.",
+      "by": "replace"
+    }
+  ]
+}

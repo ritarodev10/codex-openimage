@@ -1,0 +1,6 @@
+.DS_Store
+*.bak
+*.log
+tmp/
+output/
+.codex/
