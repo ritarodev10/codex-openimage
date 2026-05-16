@@ -1,204 +1,193 @@
 # codex-openimage
 
-> Bring high-quality OpenAI image generation to any AI coding agent — for the price of a ChatGPT subscription, not the API.
+> Get OpenAI's best image generation into any AI coding agent — for the price of a ChatGPT subscription instead of the API.
 
-## What this is
+## The problem this fixes
 
-`codex-openimage` is an **open-source skill / prompt-pack** that lets any AI coding agent (Claude Code, OpenCode, Pi, Cursor, Continue, Aider, or anything that can shell out to a CLI) generate production-grade web images by orchestrating the OpenAI Codex CLI in the background.
+Codex can generate beautiful images. But if you've tried using it while building a web project, you've probably watched something like this happen: you ask for a hero image. Codex generates one. Then, unprompted, it decides the result "doesn't quite match the page tone," verifies the image against your code, regenerates, looks again, maybe adjusts the prompt, runs another round. By the time it's done, you've spent ten minutes and four generations for what should have been a thirty-second task.
 
-The skill itself doesn't call the OpenAI Image API. It tells your coding agent *how* to delegate image generation to `codex exec` — a single line that spawns Codex in the background, which then runs its own bundled `imagegen` skill against OpenAI's image endpoint. Your agent waits for Codex to finish, post-processes the result (WebP sibling, retina @2x, sidecar metadata), and reports back.
+That's Codex being agentic in a context where you wanted a tool. It's great behavior when you're exploring; it's friction when you're shipping.
 
-Why this matters: **image generation via Codex consumes your ChatGPT subscription's included limits, not direct API credits.** A single high-quality 1536×1024 image costs ~$0.25 on the API. The same image, generated via Codex while you're on ChatGPT Plus, costs $0.00 incrementally — you've already paid for the subscription. For anyone iterating on landing pages, OG cards, hero images, or whole-site asset packs, this is the difference between "I can afford 5 attempts" and "I can iterate 200 times this month."
+The other thing is cost. OpenAI's image API is fantastic but priced per call. At roughly $0.25 a pop for a high-quality 1536×1024, iteration adds up fast. Meanwhile, the same model runs against your ChatGPT subscription limits when invoked through the Codex CLI — meaning if you're already on Plus or Pro, every image is effectively free until you exhaust your monthly quota.
 
-## Why a separate skill (vs. just using `codex` directly)
+`codex-openimage` is what sits between your coding agent and Codex. It turns the agentic image flow into a disciplined one: synthesize a good prompt, spawn one Codex call in the background, post-process the result, report back. No second-guessing, no surprise regenerations, no API bill. Just an image, in the right folder, at the right size.
 
-Codex's built-in `imagegen` already wraps the OpenAI Image API. We deliberately don't duplicate that — we sit one layer above it and add the parts that aren't a single API call:
+## Who this is for
 
-- **Intent presets** — `hero`, `og`, `feature-card`, `icon`, `logo`, `avatar`, `placeholder`, etc. Each maps to size, format, quality, and naming convention so you stop specifying dimensions every time.
-- **Project detection** — auto-resolves the output dir for Next.js / Nuxt / Astro / SvelteKit / Vite / Rails / Phoenix / Django / static HTML. Extracts brand palette from `tailwind.config` or CSS variables. No more dumping into `/tmp`.
-- **Responsive variant sets** — `mobile` / `tablet` / `desktop` with separate compositions (not just resizes) so section backgrounds with text overlay get the safe zone right at every breakpoint.
-- **Style anchoring** — generate the hero first, use it as `input_image` for every subsequent spawn so a 10-image pack stays visually coherent instead of looking like 10 separate AI requests.
-- **Parallel fan-out** — for whole-site asset packs, spawn 3-4 Codex processes concurrently and aggregate when all finish.
-- **Post-processing pipeline** — strip EXIF, emit WebP sibling, generate `@2x` retina variant, write `.meta.json` sidecar so future `replace`-mode runs know the original prompt.
-- **Clarifying-question policy** — ask up to 3 focused questions when the request is genuinely ambiguous; never gauntlet the user.
+Any AI coding agent that can run a shell command. The skill ships in the standard `SKILL.md` format that Claude Code and OpenCode read natively, but the underlying approach is portable — paste the orchestration logic into your agent's system prompt (Cursor, Continue, Aider, Pi, etc.) and it works. The image generation itself is happening in a Codex subprocess; your agent is just the conductor.
 
-## Modes
+## What it actually does
+
+When your agent receives an image-related request, this skill takes over. It first figures out what you really need — the intent (`hero`, `og`, `feature-card`, `icon`, etc. each comes with sensible defaults for size, format, and quality), where the image should live (it walks your project structure and recognizes Next.js, Nuxt, Astro, SvelteKit, Vite, Rails, Phoenix, Django, and plain HTML), and what palette and visual style your existing assets are using.
+
+If the request is for something it can't quite infer, it asks — but politely, at most three focused questions, never a quiz. If you said "you decide" or the request is rich enough to synthesize from, it skips the questions and shows you a one-line preview of the prompt before spawning, so you can redirect with one keystroke.
+
+For responsive assets — heroes, section backgrounds, banners with text overlays — it generates three separately-composed variants (mobile portrait, tablet landscape, desktop widescreen) and emits a `<picture>` snippet you can paste in. Each variant is composed with the right text safe zone for that viewport, because image models can't crop their way out of bad composition.
+
+For whole-site asset packs, the skill runs a codebase scan to find every image slot (img tags, background-image CSS, OG meta, favicon, PWA manifest icons), builds a manifest with synthesized prompts and a cost estimate, gets your one-time approval, and then fans out: the most prominent asset gets generated first, and every subsequent generation uses that first image as a visual reference so the pack stays stylistically coherent. Without this trick, parallel image gens drift apart in palette, lighting, and composition — you end up with a portfolio of unrelated images instead of a family.
+
+After every generation, it post-processes: strips EXIF, emits a WebP sibling for modern browsers, generates a `@2x` retina variant for anything under 2000px wide, and writes a small `.meta.json` sidecar with the prompt and parameters so a future `replace` run has somewhere to start.
+
+The image always lands somewhere discoverable — never `/tmp`, never `~/Downloads`. If you're inside a project, it uses the conventional path for that framework. If you're working standalone, it creates a date-stamped folder in your current directory so repeated runs accumulate without overwrites. After a batch run, it offers to open the folder in your OS file explorer.
+
+## Modes at a glance
 
 | Mode | Triggers when… | What happens |
 |---|---|---|
-| `generate` | User gives an explicit prompt for a new image | One Codex spawn, post-process, report. |
-| `auto` | User says "add an image here" without a prompt | Skill reads surrounding code, synthesizes prompt, shows preview, then spawns. |
-| `replace` | User wants to regenerate an existing image asset | Reads sidecar (if present), preserves dimensions + role, backs up original, regenerates. |
-| `edit` | Partial edit of an existing image (mask / inpaint / dark-mode variant) | Codex edit API with the original as `input_image` and optional mask. |
-| `auto-pack` | "Generate all images for this page/site" | Scans codebase for image slots, builds a manifest, anchors style, fans out in waves. |
+| `generate` | You give an explicit prompt | One Codex spawn, post-process, report. |
+| `auto` | You say "add an image here" with no prompt | Skill reads the surrounding code, synthesizes the prompt, shows a preview, then spawns. |
+| `replace` | You want to regenerate an existing asset | Reads the sidecar (if present), preserves dimensions and role, backs up the original, regenerates. |
+| `edit` | You want to partially edit an existing image | Codex edit API with mask support — inpaint, swap background, dark-mode variant. |
+| `auto-pack` | "Generate all images for this page/site" | Scans the codebase, drafts a manifest, anchors style on the hero, fans out the rest. |
 
 ## Use cases
 
-| Want… | Mode | Example ask |
+A non-exhaustive list of things this is designed to handle gracefully:
+
+| What you want | Mode | Something you'd actually say |
 |---|---|---|
-| Landing-page hero (responsive) | `generate` / `auto` | "hero for my fintech landing page" |
-| Open Graph / social card | `generate` | "OG card for this blog post about X" |
-| Feature-section illustrations | `auto-pack` | "icons + illustrations for the features grid" |
-| Product mockup | `generate` | "product render of our app on an iPhone, studio lighting" |
-| Team / avatar set | `generate` | "10 illustrated avatars in flat geometric style" |
-| Section background with text overlay | `generate` (responsive) | "hero background, headline goes top-left, must keep left third quiet" |
-| Dark-mode variant of an existing image | `edit` | "make `hero.png` dark mode" |
-| Refresh an existing image | `replace` | "regenerate this hero, less busy, warmer palette" |
-| Whole-site asset pack | `auto-pack` | "generate every image my landing page references" |
-| Placeholder gallery | `generate` (n=N) | "5 abstract placeholders for the case-study grid" |
-| Concept exploration / moodboard | `generate` (variants) | "4 logo direction concepts, flat geometric" |
-| OG-per-post for a blog | `auto-pack` | "OG image for each post under `app/blog/`" |
-| Favicon source | `generate` | "favicon source @1024 for the brand" |
-| Empty-state illustration | `generate` | "empty-state illustration for the inbox view" |
-| Marketing variants | `generate` (n=N) | "4 hero variants — pick the best" |
-| Section-bg responsive set | `generate` (responsive) | "3 viewports of the same bg, text safe-zone aware" |
+| Hero image for a landing page (responsive set) | `generate` or `auto` | "hero for my fintech landing page" |
+| Open Graph / social card | `generate` | "OG card for this blog post" |
+| Icons or illustrations for a features grid | `auto-pack` | "icons for the features section" |
+| Product mockup | `generate` | "product photo of our app on an iPhone" |
+| Team avatars | `generate` | "10 illustrated avatars, flat style" |
+| Section background with text on top | `generate` (responsive) | "hero background, headline goes top-left" |
+| Dark-mode variant of an existing image | `edit` | "make hero.png dark mode" |
+| Refresh an existing image | `replace` | "regenerate this, less busy, warmer palette" |
+| Every image a landing page needs | `auto-pack` | "generate every image my landing page references" |
+| Placeholder gallery | `generate` (n=N) | "5 abstract placeholders for the grid" |
+| Logo direction concepts | `generate` (variants) | "4 logo concepts, flat geometric" |
+| OG image per blog post | `auto-pack` | "OG image for each post under /blog" |
+| Favicon source | `generate` | "favicon source at 1024px for the brand" |
+| Empty-state illustration | `generate` | "empty-state for the inbox view" |
+| Marketing variants to A/B | `generate` (n=N) | "4 hero options — let's pick" |
+| Multi-viewport section bg | `generate` (responsive) | "3 viewports, same vibe, text-safe on each" |
 
-## Requirements
+## What you need
 
-### Subscription
+**A ChatGPT Plus subscription** (or higher) — image generation isn't available on the free tier, and Plus at $20/month is the minimum that unlocks it through Codex. Higher tiers give you more monthly image quota; Plus is plenty for most projects.
 
-Image generation via Codex requires an **active ChatGPT subscription**. The minimum tier is:
+Sign in to Codex with `codex login` so it uses your ChatGPT session. If you point it at an `OPENAI_API_KEY` instead, you're back to per-image API pricing and the cost advantage disappears.
 
-| Plan | Monthly | Includes Codex image gen? | Notes |
-|---|---|---|---|
-| **Free** | $0 | ❌ | Image generation is excluded from the free tier. |
-| **Plus** | $20 | ✅ | Entry point — most users start here. Image gens consume your monthly limits ~3-5× faster than text. |
-| **Pro (5×)** | $100 | ✅ | 5× the Plus limits. |
-| **Pro (20×)** | $200 | ✅ | 20× the Plus limits. Best value if you're generating packs daily. |
-| **Business / Enterprise** | $20/seat+ | ✅ | Codex included; per-seat billing. |
+**The Codex CLI**, version 0.130 or newer. Install with `npm install -g @openai/codex@latest` or `brew install codex`.
 
-Subscription image generation is metered in "included limits," not dollar credits. The exact image quota varies by tier and is consumed faster than text generation. Check your usage at `chatgpt.com/settings`.
+**One of**:
+- Claude Code, OpenCode, or any agent that reads the `SKILL.md` frontmatter format
+- Any other coding agent that can shell out — the orchestration is portable, just paste `SKILL.md` into your agent's system instructions
 
-> If you point Codex at an API key (`OPENAI_API_KEY`) instead of a ChatGPT session, billing falls back to per-image API pricing — defeats the cost advantage. Don't.
+**Optional, but the skill uses them if present**:
+- `cwebp` for fast WebP siblings
+- `exiftool` for cleaner EXIF stripping
+- `jq` for prettier JSON from the scanner
+- `sips` on macOS (preinstalled) or ImageMagick for retina @2x
 
-### Tooling
-
-- **Codex CLI ≥ 0.130** in `PATH` — install: `npm install -g @openai/codex@latest` (or `brew install codex`)
-- Codex authenticated to your ChatGPT account: `codex login` (one-time)
-- One of:
-  - **Claude Code** (uses the skill via `SKILL.md` frontmatter)
-  - **OpenCode** (uses the skill via the same frontmatter)
-  - **Any agent that can shell out** — copy the `SKILL.md` content into your agent's system/instruction prompt, the orchestration is portable
-
-### Optional (graceful degradation)
-
-- `cwebp` — fast WebP sibling emission (falls back to `magick` or skips with a warning)
-- `exiftool` — clean EXIF strip (falls back to `sips -d` on macOS, skips on others)
-- `jq` — clean JSON output from `scan-image-slots.sh` (falls back to hand-rolled JSON)
-- `sips` (macOS, preinstalled) or ImageMagick `magick` / `convert` for retina @2x
+When any of these are missing, the skill notices once and degrades gracefully — it doesn't fail, it just skips the corresponding step and tells you.
 
 ## Install
+
+Clone the repo wherever you like to keep external skills:
 
 ```bash
 git clone https://github.com/ritarodev10/codex-openimage.git ~/codex-openimage
 ```
 
-Then symlink into your agent's skill discovery path:
+Then symlink it into your agent's skill discovery path. For Claude Code:
 
 ```bash
-# Claude Code
 ln -s ~/codex-openimage ~/.claude/skills/codex-openimage
-
-# OpenCode
-ln -s ~/codex-openimage ~/.config/opencode/skills/codex-openimage
-
-# skills-manager (if used)
-ln -s ~/codex-openimage ~/.skills-manager/skills/codex-openimage
 ```
 
-Restart your agent or run its skill-refresh command. The skill activates automatically when the agent receives an image-related request.
+For OpenCode:
 
-For **other agents** without a native skill loader (Cursor, Continue, Aider, Pi, etc.), you have two options:
-1. Paste the contents of `SKILL.md` into your agent's system instructions / project rules
-2. Reference the skill at the start of an image task: "Read `~/codex-openimage/SKILL.md` and use that approach"
+```bash
+ln -s ~/codex-openimage ~/.config/opencode/skills/codex-openimage
+```
 
-The orchestration itself is plain bash + tool-agnostic — any agent that can run `codex exec` in the background and read JSON can drive it.
+Restart your agent (or run its skill-refresh command). The skill activates automatically when you next ask for an image.
 
-## Quickstart
+For agents without a native skill loader — Cursor, Continue, Aider, Pi, and so on — there are two options. Either paste the contents of `SKILL.md` into your agent's system instructions or project rules, or reference it at the start of an image task: *"Read `~/codex-openimage/SKILL.md` and follow that approach for any image generation."*
 
-A typical interaction:
+## A typical interaction
 
-> **User:** generate a hero image for my landing page
->
-> **Agent (this skill):**
-> 1. Detects framework (Next.js) and output dir (`public/images`)
-> 2. Reads `app/page.tsx` for nearest heading + first paragraph + brand palette
-> 3. Infers intent → `hero`, responsive set on, text overlay detected
-> 4. Synthesizes a prompt with palette + safe-zone + negative guards
-> 5. Shows the prompt as a one-line preview; user says "go"
-> 6. Spawns `codex exec ...` for the desktop variant in the background
-> 7. On completion, spawns mobile + tablet in parallel using desktop as `input_image` (style lock)
-> 8. Runs `scripts/postprocess.sh` on each → WebP sibling + `@2x` retina + `.meta.json`
-> 9. Writes a `<picture>` snippet next to the assets; reports total time + size on disk
-> 10. Offers to open the output folder in your OS file explorer
+You're working on a landing page and you say:
 
-For an asset pack:
+> generate a hero image for this
 
-> **User:** generate every image my landing page needs
->
-> **Agent:**
-> 1. Runs `scripts/scan-image-slots.sh` → finds 8 image slots (`hero`, `og`, `twitter-card`, 5 feature cards)
-> 2. Drafts `pack-manifest.yaml` with synthesized prompts + cost estimate (~$0.00 on subscription, ~$2.10 if API-billed)
-> 3. Asks for one batch approval
-> 4. Generates hero first (style anchor), then fans out the rest in waves of 3
-> 5. Reports thumbnail grid + folder reveal prompt
+What the skill does next, behind the scenes:
 
-## Cost comparison
+1. Notices you're in a Next.js project and the output folder is `public/images/`.
+2. Reads `app/page.tsx` to find the nearest heading and first paragraph for context.
+3. Recognizes this as a `hero` request, which means responsive variants and a likely text overlay.
+4. Extracts your brand palette from `tailwind.config.ts`.
+5. Synthesizes a prompt that includes subject, scene, palette, safe zones for each viewport, and content-type-specific negative prompts.
+6. Shows you the prompt as a one-line preview.
+
+You say "go." It spawns Codex in the background for the desktop variant. When that finishes (you're notified, no polling), it spawns mobile and tablet in parallel, using the desktop image as a style reference so they share palette, lighting, and mood. Each variant gets post-processed: WebP sibling, retina `@2x`, EXIF stripped, sidecar metadata written.
+
+You end up with six files in `public/images/`, a `<picture>` snippet ready to paste, and a one-line report:
+
+```
+Generated: 3 images, 6 files total, 2.8 MB on disk
+  hero-desktop.png  1920×1080  + .webp + @2x
+  hero-tablet.png   1280×960   + .webp + @2x
+  hero-mobile.png   768×1024   + .webp + @2x
+Style locked via desktop as input_image.
+Open the folder? [y/n]
+```
+
+For a whole-site pack, it's the same shape scaled up: scan, manifest, one approval, fan out, anchor, report.
+
+## Cost in practice
 
 For a typical 8-image landing-page pack at high quality:
 
-|  | Per-image | 8 images | Notes |
-|---|---|---|---|
-| **OpenAI API direct** | ~$0.25 | ~$2.00 | Billed per generation, immediate hard cost. |
-| **ChatGPT Plus ($20/mo) via Codex** | $0.00* | $0.00* | *Already paid. Consumes monthly image quota. |
-| **ChatGPT Pro 20× ($200/mo)** | $0.00* | $0.00* | *Same idea, 20× the quota. |
+| | Per image | 8 images |
+|---|---|---|
+| OpenAI Image API direct | ~$0.25 | ~$2.00 |
+| ChatGPT Plus via Codex | $0.00 incrementally | $0.00 incrementally |
 
-The break-even point for hobbyist usage is ~80 images/month. For anyone iterating on UI assets, you'll cross that in a week.
+The subscription path bills against your monthly image quota instead of charging per call. Break-even versus the API lands around 80 images a month — easy to cross in a week if you're iterating on UI work, and the underlying model is the same either way.
 
-## File structure
+## Repo layout
 
 ```
 .
-├── SKILL.md                       # orchestrator — modes, recipes, policies
-├── README.md                      # you are here
+├── SKILL.md                       # the orchestrator — modes, recipes, policies
+├── README.md
 ├── LICENSE                        # MIT
 ├── LICENSE.original               # original Apache-2.0 (preserved for attribution)
 ├── references/
 │   ├── intent-presets.md          # intent → size/format/quality/naming
 │   ├── project-detection.md       # framework → output path; palette extraction
 │   ├── negative-prompts.md        # quality guardrails per content type
-│   ├── style-anchors.md           # style descriptor library for auto-pack
+│   ├── style-anchors.md           # style descriptor library for packs
 │   ├── asset-pack-scan.md         # what slots to find and how
 │   ├── clarifying-questions.md    # 20 use cases mapping vague asks → right questions
 │   ├── prompting.md               # prompting principles (kept from upstream)
-│   └── sample-prompts.md          # copy/paste recipes by taxonomy (kept from upstream)
+│   └── sample-prompts.md          # copy/paste recipes by taxonomy
 ├── scripts/
 │   ├── scan-image-slots.sh        # codebase → JSON list of image slots
-│   └── postprocess.sh             # strip EXIF + WebP + retina @2x + sidecar
+│   └── postprocess.sh             # strip EXIF + WebP + retina + sidecar
 ├── templates/
 │   ├── pack-manifest.yaml         # auto-pack manifest skeleton
 │   └── sidecar-meta.json          # example per-image .meta.json
 ├── assets/                        # skill icon
-└── legacy/                        # pre-codex direct-CLI files (preserved, fallback)
+└── legacy/                        # pre-codex direct-CLI implementation (preserved)
 ```
 
 ## Contributing
 
-Pull requests welcome — especially:
-- New intent presets for content types not yet covered
-- Additional framework detection patterns
-- Better palette extraction heuristics
-- Use cases / clarifying-question patterns from your own workflow
+Pull requests welcome, especially for: new intent presets for content types we haven't covered, additional framework detection patterns, better palette extraction heuristics, and clarifying-question recipes from your own workflow.
 
-Issues: please include the agent you're using (Claude Code / OpenCode / other), your subscription tier, and a minimal reproduction.
+When filing issues, please mention the agent you're using, your subscription tier, and a minimal reproduction.
 
 ## License
 
-MIT. See `LICENSE`. The original upstream skill shipped under Apache-2.0; that text is preserved as `LICENSE.original` for attribution.
+MIT. The upstream skill this is derived from shipped under Apache-2.0; that text is preserved as `LICENSE.original` for attribution.
 
 ---
 
-Sources for subscription/pricing data (verified May 2026):
+Subscription and pricing data verified against:
 - [Using Codex with your ChatGPT plan — OpenAI Help Center](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan)
 - [Codex Pricing — OpenAI Developers](https://developers.openai.com/codex/pricing)
 - [ChatGPT Plans](https://chatgpt.com/pricing/)
