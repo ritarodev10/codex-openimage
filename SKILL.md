@@ -1,6 +1,6 @@
 ---
 name: "codex-openimage"
-description: "Use when the user asks to generate, edit, replace, or batch-create images and visual assets — landing-page heroes, OG cards, feature illustrations, product shots, icons, mockups, concept art, infographics, dark/light variants, retina sets, or whole-site asset packs. This skill orchestrates generation by spawning codex in the background (which runs the OpenAI Image API under the hood); Claude does not call the API directly. Requires `OPENAI_API_KEY` and a working `codex` CLI in PATH."
+description: "Use when the user asks to generate, edit, replace, or batch-create images and visual assets — landing-page heroes, OG cards, feature illustrations, product shots, icons, mockups, concept art, infographics, dark/light variants, retina sets, or whole-site asset packs. This skill orchestrates generation by spawning codex in the background (which runs the OpenAI Image API under the hood); Claude does not call the API directly. Requires `codex` CLI in PATH and codex authenticated to an active ChatGPT subscription (run `codex login`)."
 ---
 
 # Imagegen — Codex-Orchestrated Image Generation
@@ -81,11 +81,13 @@ Use `AskUserQuestion` with header `Open folder` and options:
 
 ## Required environment
 
-- `OPENAI_API_KEY` exported in shell — codex needs it
-- `codex` >=0.130 in PATH — older versions break with the superset wrapper
+- `codex` CLI >=0.130 in PATH — older versions break with the superset wrapper
+- Codex authenticated to an active **ChatGPT subscription** (Plus or higher) via `codex login`. This is the recommended auth path — image generation then consumes the subscription's monthly image quota at no incremental cost.
 - macOS `sips` available (for retina @2x — defaults exist for Linux too)
 
-If `OPENAI_API_KEY` is missing, do **not** spawn codex. Tell the user to set it and stop.
+Fallback auth: if `OPENAI_API_KEY` is set in the environment, codex will use it instead of the ChatGPT session. This works but bills per generation against the OpenAI Image API (~$0.25 per high-quality 1536×1024). Surface this to the user when detected — they may have meant to use their subscription.
+
+If codex is neither logged in nor has `OPENAI_API_KEY` set, do **not** spawn codex. Tell the user to run `codex login` (or set the API key) and stop.
 
 ## The codex spawn template
 
