@@ -87,33 +87,40 @@ When any of these are missing, the skill notices once and degrades gracefully �
 
 ## Install
 
-Clone the repo wherever you like to keep external skills:
+One command. Detects whichever skill-aware agents you have installed and wires the skill into each:
 
 ```bash
-git clone https://github.com/ritarodev10/codex-openimage.git ~/codex-openimage
+npx codex-openimage
 ```
 
-Then symlink it into your agent's skill discovery path. For Claude Code:
+That runs a small installer which:
+1. Places the skill files at `~/.local/share/codex-openimage/` (XDG location)
+2. Detects `~/.claude/skills/`, `~/.config/opencode/skills/`, `~/.pi/agent/skills/`, `~/.skills-manager/skills/`
+3. Symlinks `codex-openimage` into every detected agent's skill dir
+4. Prints a summary
+
+Restart your agent (or run its skill-refresh command) after install and the skill activates automatically when you next ask for an image.
+
+**Other modes:**
 
 ```bash
-ln -s ~/codex-openimage ~/.claude/skills/codex-openimage
+npx codex-openimage --project    # scope to current project only (.claude/skills, etc.)
+npx codex-openimage --all        # also create dirs for agents not yet installed
+npx codex-openimage uninstall    # remove all symlinks + source
+npx codex-openimage --help       # show resolved paths for your machine
 ```
 
-For OpenCode:
+**Update:** re-run `npx codex-openimage` — the installer replaces the source and re-links.
+
+**For agents without a native skill loader** — Cursor, Windsurf, Cline, Roo Code, Aider, and so on — paste the contents of `SKILL.md` into your agent's project rules (`.cursorrules`, `.windsurfrules`, `.clinerules`, `AGENTS.md`, etc.), or reference it at the start of an image task: *"Read `~/.local/share/codex-openimage/SKILL.md` and follow that approach for any image generation."*
+
+**Manual install (no node):** if you'd rather not use `npx`, clone the repo and symlink yourself:
 
 ```bash
-ln -s ~/codex-openimage ~/.config/opencode/skills/codex-openimage
+git clone https://github.com/ritarodev10/codex-openimage.git ~/.local/share/codex-openimage
+ln -s ~/.local/share/codex-openimage ~/.claude/skills/codex-openimage
+# repeat for ~/.config/opencode/skills/, ~/.pi/agent/skills/ as needed
 ```
-
-For Pi:
-
-```bash
-ln -s ~/codex-openimage ~/.pi/agent/skills/codex-openimage
-```
-
-Restart your agent (or run its skill-refresh command). The skill activates automatically when you next ask for an image.
-
-For agents without a native skill loader — Cursor, Windsurf, Cline, Roo Code, Aider, and so on — there are two options. Either paste the contents of `SKILL.md` into your agent's project rules (`.cursorrules`, `.windsurfrules`, `.clinerules`, `AGENTS.md`, etc.), or reference it at the start of an image task: *"Read `~/codex-openimage/SKILL.md` and follow that approach for any image generation."*
 
 ## A typical interaction
 

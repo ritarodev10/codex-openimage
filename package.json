@@ -1,0 +1,50 @@
+{
+  "name": "codex-openimage",
+  "version": "0.1.0",
+  "description": "Bring OpenAI image generation to any AI coding agent via the Codex CLI — for the price of a ChatGPT subscription instead of the API. One-shot installer that detects Claude Code, OpenCode, Pi, and other skill-aware agents.",
+  "bin": {
+    "codex-openimage": "bin/install.js"
+  },
+  "files": [
+    "SKILL.md",
+    "README.md",
+    "LICENSE",
+    "LICENSE.original",
+    "references/",
+    "scripts/",
+    "templates/",
+    "assets/",
+    "bin/"
+  ],
+  "keywords": [
+    "claude-code",
+    "claude",
+    "opencode",
+    "pi-coding-agent",
+    "codex",
+    "openai",
+    "image-generation",
+    "imagegen",
+    "ai-coding-agent",
+    "skill",
+    "agent-skill",
+    "skill-installer"
+  ],
+  "homepage": "https://github.com/ritarodev10/codex-openimage#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ritarodev10/codex-openimage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ritarodev10/codex-openimage/issues"
+  },
+  "license": "MIT",
+  "author": "ritarodev10",
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ]
+}
